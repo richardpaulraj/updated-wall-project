@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Three JS</title>
+  </head>
+  <body>
+    <div class="options-cont">
+      <i class="fa-solid fa-xmark"></i>
+    </div>
+    <div class="tools-cont scale-tools">
+      <!--here scale tools is just for animation purpose-->
+      <img src="Icons/Pencil.svg" class="pencil" />
+     <img src="Icons/Undo.svg" class="undo" />
+      <img src="Icons/Redo.svg" class="redo" />
+    </div>
+    <div class="pencil-tool-cont">
+      <div class="pencil-width-cont">
+        <input type="range" min="2" max="10" value="3" class="pencil-width" />
+      </div>
+      <div class="pencil-color-cont">
+        <div class="black pencil-color"></div>
+        <div class="red pencil-color"></div>
+        <div class="blue pencil-color"></div>
+      </div>
+    </div>
+
+
+    <div id="toggle_3d">
+      <label>
+        3D
+        <!-- <input type="checkbox" /> -->
+        <button id="toggleViewButton">Toggle</button>
+      </label>
+    </div>
+
+    <canvas id="canvas2d"></canvas>
+    <canvas id="canvas3d"></canvas>
+
+    <script
+      src="https://kit.fontawesome.com/e36f0c5a9b.js"
+      crossorigin="anonymous"
+    ></script>
+    <script type="module"  src="tools.js"></script>
+    <script type="module"  src="canvas.js"></script>
+  </body>
+</html>
