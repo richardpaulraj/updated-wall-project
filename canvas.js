@@ -1,211 +1,342 @@
-import * as THREE from 'three';
+import * as THREE from 'three'
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js'
 
+const DrawingApp = {
+  canvas2d: document.querySelector('#canvas2d'),
+  canvas3d: document.querySelector('#canvas3d'),
+  tool: null,
+  scene: null,
+  renderer: null,
+  camera: null,
+  controls: null,
+  lines: [],
+  undoStack: [],
+  redoStack: [],
+  currentPencilColor: 'red',
+  currentPencilWidth: 3,
+  is3DView: false,
+  optionsFlag: true,
+  pencilFlag: false,
 
-import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+  init() {
+    this.tool = this.canvas2d.getContext('2d')
+    this.setupEventListeners()
+    this.setupToolsEventListeners()
+    this.draw2DScene()
+  },
 
-let canvas2d = document.querySelector('#canvas2d');
-let canvas3d = document.querySelector('#canvas3d');
-let tool = canvas2d.getContext('2d');
+  setupEventListeners() {
+    const button = document.getElementById('toggleViewButton')
+    button.addEventListener('click', () => this.toggleView())
 
-const button = document.getElementById('toggleViewButton');
-let is3DView = false;
+    const undoButton = document.querySelector('.undo')
+    undoButton.addEventListener('click', () => this.undo())
 
-let lines = []; // Store all lines drawn
-let removedLines = []; // Array to store removed lines
+    const redoButton = document.querySelector('.redo')
+    redoButton.addEventListener('click', () => this.redo())
 
-let currentPencilColor = 'red'; // Default pencil color
-let currentPencilWidth = 1; // Default pencil width
+    this.canvas2d.addEventListener('mousedown', this.handleMouseDown.bind(this))
+    this.canvas2d.addEventListener('mousemove', this.handleMouseMove.bind(this))
+    this.canvas2d.addEventListener('mouseup', this.handleMouseUp.bind(this))
+  },
 
-button.addEventListener('click', toggleView);
+  setupToolsEventListeners() {
+    const optionsCont = document.querySelector('.options-cont')
+    const toolsCont = document.querySelector('.tools-cont')
+    const pencilToolCont = document.querySelector('.pencil-tool-cont')
+    const pencil = document.querySelector('.pencil')
+    const pencilWidth = document.querySelector('.pencil-width')
+    const pencilColors = document.querySelectorAll('.pencil-color')
 
-function toggleView() {
-    is3DView = !is3DView;
-    if (is3DView) {
-        canvas2d.style.display = 'none';
-        canvas3d.style.display = 'block';
-        draw3DScene();
-        // Clear lines data when switching to 3D scene
-        lines = [];
+    optionsCont.addEventListener('click', () =>
+      this.toggleOptions(toolsCont, pencilToolCont)
+    )
+    pencil.addEventListener('click', () =>
+      this.togglePencilTool(pencilToolCont)
+    )
+    pencilWidth.addEventListener('input', () =>
+      this.updatePencilWidth(pencilWidth.value)
+    )
+
+    pencilColors.forEach((color) => {
+      color.addEventListener('click', () =>
+        this.updatePencilColor(color.classList[0])
+      )
+    })
+  },
+
+  toggleOptions(toolsCont, pencilToolCont) {
+    this.optionsFlag = !this.optionsFlag
+    const optionsCont = document.querySelector('.options-cont')
+    const iconElem = optionsCont.children[0]
+
+    if (this.optionsFlag) {
+      iconElem.classList.remove('fa-xmark')
+      iconElem.classList.add('fa-bars')
+      toolsCont.style.display = 'none'
+      pencilToolCont.style.display = 'none'
     } else {
-        canvas3d.style.display = 'none';
-        canvas2d.style.display = 'block';
-        draw2DScene();
+      iconElem.classList.remove('fa-bars')
+      iconElem.classList.add('fa-xmark')
+      toolsCont.style.display = 'flex'
     }
+  },
+
+  togglePencilTool(pencilToolCont) {
+    this.pencilFlag = !this.pencilFlag
+    pencilToolCont.style.display = this.pencilFlag ? 'block' : 'none'
+  },
+
+  updatePencilWidth(width) {
+    this.currentPencilWidth = width
+  },
+
+  updatePencilColor(color) {
+    this.currentPencilColor = color
+  },
+
+  handleMouseDown(e) {
+    this.startX = e.clientX
+    this.startY = e.clientY
+    this.isDrawing = true
+  },
+
+  handleMouseMove(e) {
+    if (this.isDrawing) {
+      const endX = e.clientX
+      const endY = e.clientY
+      this.drawTempLine(this.startX, this.startY, endX, endY)
+    }
+  },
+
+  handleMouseUp(e) {
+    if (this.isDrawing) {
+      const endX = e.clientX
+      const endY = e.clientY
+      this.drawLine(this.startX, this.startY, endX, endY)
+      this.isDrawing = false
+    }
+  },
+
+  toggleView() {
+    this.is3DView = !this.is3DView
+    if (this.is3DView) {
+      this.canvas2d.style.display = 'none'
+      this.canvas3d.style.display = 'block'
+      this.remove2DEventListeners()
+      this.draw3DScene()
+    } else {
+      this.canvas3d.style.display = 'none'
+      this.canvas2d.style.display = 'block'
+      this.remove3DScene()
+      this.setupEventListeners()
+      this.redrawCanvas()
+    }
+  },
+
+  remove2DEventListeners() {
+    this.canvas2d.removeEventListener('mousedown', this.handleMouseDown)
+    this.canvas2d.removeEventListener('mousemove', this.handleMouseMove)
+    this.canvas2d.removeEventListener('mouseup', this.handleMouseUp)
+  },
+
+  remove3DScene() {
+    if (this.renderer) {
+      cancelAnimationFrame(this.animationId)
+      this.renderer.dispose()
+      this.renderer = null
+      this.scene.dispose()
+      this.scene = null
+      this.camera = null
+      this.controls = null
+    }
+  },
+
+  draw2DScene() {
+    this.canvas2d.width = window.innerWidth
+    this.canvas2d.height = window.innerHeight
+    this.redrawCanvas()
+  },
+
+  drawTempLine(startX, startY, endX, endY) {
+    this.tool.clearRect(0, 0, this.canvas2d.width, this.canvas2d.height)
+    this.redrawCanvas()
+    this.tool.beginPath()
+    this.tool.moveTo(startX, startY)
+    this.tool.lineTo(endX, endY)
+    this.tool.strokeStyle = this.currentPencilColor
+    this.tool.lineWidth = this.currentPencilWidth
+    this.tool.stroke()
+    this.tool.closePath()
+  },
+
+  drawLine(startX, startY, endX, endY) {
+    if (!(startX === endX && startY === endY)) {
+      const line = {
+        startX,
+        startY,
+        endX,
+        endY,
+        color: this.currentPencilColor,
+        width: this.currentPencilWidth,
+      }
+
+      this.undoStack.push(this.lines.slice())
+      this.redoStack = []
+      this.lines.push(line)
+      this.redrawCanvas()
+      this.logLinesData()
+
+      if (this.is3DView) {
+        this.updateThreeDScene()
+      }
+    }
+  },
+
+  redrawCanvas() {
+    this.tool.clearRect(0, 0, this.canvas2d.width, this.canvas2d.height)
+    this.lines.forEach((line) => {
+      this.tool.beginPath()
+      this.tool.moveTo(line.startX, line.startY)
+      this.tool.lineTo(line.endX, line.endY)
+      this.tool.strokeStyle = line.color
+      this.tool.lineWidth = line.width
+      this.tool.stroke()
+      this.tool.closePath()
+    })
+  },
+
+  saveDrawing() {
+    // Not implemented as we are not using undo/redo
+  },
+
+  logLinesData() {
+    console.log('Lines drawn:')
+    this.lines.forEach((line, index) => {
+      console.log(
+        `Line ${index + 1}: startX=${line.startX}, startY=${
+          line.startY
+        }, endX=${line.endX}, endY=${line.endY}`
+      )
+    })
+  },
+
+  undo() {
+    if (this.undoStack.length > 0) {
+      this.redoStack.push(this.lines.slice())
+      this.lines = this.undoStack.pop()
+      this.redrawCanvas()
+
+      if (this.is3DView) {
+        this.updateThreeDScene()
+      }
+    }
+  },
+
+  redo() {
+    if (this.redoStack.length > 0) {
+      this.undoStack.push(this.lines.slice())
+      this.lines = this.redoStack.pop()
+      this.redrawCanvas()
+
+      if (this.is3DView) {
+        this.updateThreeDScene()
+      }
+    }
+  },
+
+  draw3DScene() {
+    this.scene = new THREE.Scene()
+    this.camera = new THREE.PerspectiveCamera(
+      75,
+      window.innerWidth / window.innerHeight,
+      0.1,
+      1000
+    )
+    this.renderer = new THREE.WebGLRenderer({ canvas: this.canvas3d })
+    this.renderer.setSize(window.innerWidth, window.innerHeight)
+    this.renderer.setClearColor('#fff')
+
+    const canvasCenterX = this.canvas3d.width / 2
+    const canvasCenterY = this.canvas3d.height / 2
+    const scaleFactor = 0.02
+    const linesGroup = new THREE.Group()
+
+    this.lines.forEach((line) => {
+      const startX = (line.startX - canvasCenterX) * scaleFactor
+      const startY = (canvasCenterY - line.startY) * scaleFactor
+      const endX = (line.endX - canvasCenterX) * scaleFactor
+      const endY = (canvasCenterY - line.endY) * scaleFactor
+
+      const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+        new THREE.Vector3(startX, 0.1, startY),
+        new THREE.Vector3(endX, 0.1, endY),
+      ])
+      const lineMaterial = new THREE.LineBasicMaterial({
+        color: new THREE.Color(line.color),
+      })
+      const lineObject = new THREE.Line(lineGeometry, lineMaterial)
+
+      linesGroup.add(lineObject)
+    })
+
+    linesGroup.rotation.y = Math.PI
+    linesGroup.rotation.z = Math.PI
+    linesGroup.rotation.x = Math.PI / 2
+
+    this.scene.add(linesGroup)
+
+    this.camera.position.y = 3
+    this.camera.position.z = 8
+
+    this.controls = new OrbitControls(this.camera, this.canvas3d)
+    this.controls.enableDamping = true
+
+    const animate = () => {
+      if (this.renderer) {
+        this.animationId = requestAnimationFrame(animate)
+        this.controls.update()
+        this.renderer.render(this.scene, this.camera)
+      }
+    }
+
+    animate()
+  },
+
+  updateThreeDScene() {
+    if (this.scene && this.renderer) {
+      this.scene.remove(this.scene.children[0])
+
+      const canvasCenterX = this.canvas3d.width / 2
+      const canvasCenterY = this.canvas3d.height / 2
+      const scaleFactor = 0.02
+      const linesGroup = new THREE.Group()
+
+      this.lines.forEach((line) => {
+        const startX = (line.startX - canvasCenterX) * scaleFactor
+        const startY = (canvasCenterY - line.startY) * scaleFactor
+        const endX = (line.endX - canvasCenterX) * scaleFactor
+        const endY = (canvasCenterY - line.endY) * scaleFactor
+
+        const lineGeometry = new THREE.BufferGeometry().setFromPoints([
+          new THREE.Vector3(startX, 0.1, startY),
+          new THREE.Vector3(endX, 0.1, endY),
+        ])
+        const lineMaterial = new THREE.LineBasicMaterial({
+          color: new THREE.Color(line.color),
+        })
+        const lineObject = new THREE.Line(lineGeometry, lineMaterial)
+
+        linesGroup.add(lineObject)
+      })
+
+      linesGroup.rotation.y = Math.PI
+      linesGroup.rotation.z = Math.PI
+      linesGroup.rotation.x = Math.PI / 2
+
+      this.scene.add(linesGroup)
+    }
+  },
 }
 
-function draw2DScene() {
-    canvas2d.width = window.innerWidth;
-    canvas2d.height = window.innerHeight;
-
-    // Draw lines from stored data
-    lines.forEach((line) => {
-        tool.beginPath();
-        tool.moveTo(line.startX, line.startY);
-        tool.lineTo(line.endX, line.endY);
-        tool.strokeStyle = line.color;
-        tool.lineWidth = line.width;
-        tool.stroke();
-        tool.closePath();
-    });
-
-    // Add event listeners for drawing lines
-    let isDrawing = false;
-    let startX, startY;
-
-    canvas2d.addEventListener('mousedown', (e) => {
-        startX = e.clientX;
-        startY = e.clientY;
-        isDrawing = true;
-    });
-
-    canvas2d.addEventListener('mousemove', (e) => {
-        if (isDrawing) {
-            let endX = e.clientX;
-            let endY = e.clientY;
-            drawTempLine(startX, startY, endX, endY);
-        }
-    });
-
-    canvas2d.addEventListener('mouseup', (e) => {
-        if (isDrawing) {
-            let endX = e.clientX;
-            let endY = e.clientY;
-            drawLine(startX, startY, endX, endY);
-            isDrawing = false;
-        }
-    });
-
-    function drawLine(startX, startY, endX, endY) {
-        if (!(startX === endX && startY === endY)) {
-            lines.push({
-                startX,
-                startY,
-                endX,
-                endY,
-                color: currentPencilColor,
-                width: currentPencilWidth,
-            });
-            redrawCanvas();
-            saveDrawing();
-            logLinesData();
-        }
-    }
-
-    function drawTempLine(startX, startY, endX, endY) {
-        tool.clearRect(0, 0, canvas2d.width, canvas2d.height);
-        redrawCanvas(); // Redraw all lines
-        tool.beginPath();
-        tool.moveTo(startX, startY);
-        tool.lineTo(endX, endY);
-        tool.strokeStyle = currentPencilColor; // Update current color
-        tool.lineWidth = currentPencilWidth; // Update current width
-        tool.stroke();
-        tool.closePath();
-    }
-
-    function redrawCanvas() {
-        tool.clearRect(0, 0, canvas2d.width, canvas2d.height);
-        lines.forEach((line) => {
-            tool.beginPath();
-            tool.moveTo(line.startX, line.startY);
-            tool.lineTo(line.endX, line.endY);
-            tool.strokeStyle = line.color;
-            tool.lineWidth = line.width;
-            tool.stroke();
-            tool.closePath();
-        });
-    }
-
-    function saveDrawing() {
-        // Not implemented as we are not using undo/redo
-    }
-
-    function logLinesData() {
-        console.log('Lines drawn:');
-        lines.forEach((line, index) => {
-            console.log(
-                `Line ${index + 1}: startX=${line.startX}, startY=${line.startY}, endX=${line.endX}, endY=${line.endY}`
-            );
-        });
-    }
-}
-
-function draw3DScene() {
-  const scene = new THREE.Scene();
-
-  const camera = new THREE.PerspectiveCamera(
-    75,
-    window.innerWidth / window.innerHeight,
-    0.1,
-    1000
-  );
-  const renderer = new THREE.WebGLRenderer({ canvas: canvas3d });
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  renderer.setClearColor('#fff');
-
-  // Create the surface mesh
-  // const floor = new THREE.Mesh(
-  //   new THREE.BoxGeometry(10, 0.1, 10),
-  //   new THREE.MeshBasicMaterial({ color: '#DDDDDD' })
-  // );
-  // scene.add(floor);
-
-  // Define the center of the canvas
-  const canvasCenterX = canvas3d.width / 2;
-  const canvasCenterY = canvas3d.height / 2;
-
-  // Scale factor to fit lines within the bounds of the surface
-  const scaleFactor = 0.02;
-
-  // Create a group to hold all the lines
-  const linesGroup = new THREE.Group();
-
-  // Draw lines in 3D space based on the lines data from the 2D canvas
-  lines.forEach((line) => {
-    // Calculate the position of the line relative to the canvas center
-    const startX = (line.startX - canvasCenterX) * scaleFactor;
-    const startY = (canvasCenterY - line.startY) * scaleFactor; // Adjust the y-coordinate to correct orientation
-    const endX = (line.endX - canvasCenterX) * scaleFactor;
-    const endY = (canvasCenterY - line.endY) * scaleFactor; // Adjust the y-coordinate to correct orientation
-
-    const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-      new THREE.Vector3(startX, 0.1, startY), // Raise the line slightly above the surface
-      new THREE.Vector3(endX, 0.1, endY), // Raise the line slightly above the surface
-    ]);
-    const lineMaterial = new THREE.LineBasicMaterial({ color: 0xff0000 });
-    const lineObject = new THREE.Line(lineGeometry, lineMaterial);
-
-    linesGroup.add(lineObject); // Add the line to the group
-  });
-
-  // Rotate the entire group of lines
-  linesGroup.rotation.y = Math.PI ; // Rotate 90 degrees around the y-axis
-  linesGroup.rotation.z = Math.PI  ; // Rotate 90 degrees around the y-axis
-  linesGroup.rotation.x = Math.PI /2; // Rotate 90 degrees around the y-axis
-
-
-
-  // Add the group of lines to the scene
-  scene.add(linesGroup);
-
-  camera.position.y = 3;
-  camera.position.z = 8;
-
-  const controls = new OrbitControls(camera, canvas3d);
-  controls.enableDamping = true;
-
-  const animate = function () {
-    requestAnimationFrame(animate);
-    controls.update();
-    renderer.render(scene, camera);
-  };
-
-  animate();
-}
-
-
-
-
-
-// Initial drawing
-draw2DScene();
+DrawingApp.init()
