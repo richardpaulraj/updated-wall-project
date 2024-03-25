@@ -245,6 +245,61 @@ const DrawingApp = {
     }
   },
 
+  createLineGeometries() {
+    const canvasCenterX = this.canvas3d.width / 2;
+    const canvasCenterY = this.canvas3d.height / 2;
+    const scaleFactor = 0.02;
+    const lineHeight = 2; // Predefined line height
+    const lineWidthFactor = 5; // Factor to multiply with pencil width
+    const lineGeometries = [];
+  
+    this.lines.forEach((line) => {
+      const startX = (line.startX - canvasCenterX) * scaleFactor;
+      const startY = (canvasCenterY - line.startY) * scaleFactor;
+      const endX = (line.endX - canvasCenterX) * scaleFactor;
+      const endY = (canvasCenterY - line.endY) * scaleFactor;
+  
+      const lineShape = new THREE.Shape();
+      const lineWidth = (line.width * scaleFactor) * lineWidthFactor;
+      const halfLineWidth = lineWidth / 2;
+  
+      // Calculate the normal vector to the line
+      const dx = endX - startX;
+      const dy = endY - startY;
+      const length = Math.sqrt(dx * dx + dy * dy);
+      const normalX = -dy / length;
+      const normalY = dx / length;
+  
+      // Define the four corners of the rectangle
+      const corner1X = startX - halfLineWidth * normalX;
+      const corner1Y = startY - halfLineWidth * normalY;
+      const corner2X = startX + halfLineWidth * normalX;
+      const corner2Y = startY + halfLineWidth * normalY;
+      const corner3X = endX + halfLineWidth * normalX;
+      const corner3Y = endY + halfLineWidth * normalY;
+      const corner4X = endX - halfLineWidth * normalX;
+      const corner4Y = endY - halfLineWidth * normalY;
+  
+      lineShape.moveTo(corner1X, corner1Y);
+      lineShape.lineTo(corner2X, corner2Y);
+      lineShape.lineTo(corner3X, corner3Y);
+      lineShape.lineTo(corner4X, corner4Y);
+      lineShape.closePath();
+  
+      const extrudeSettings = {
+        depth: lineHeight,
+        bevelEnabled: false,
+      };
+  
+      const extrudeGeometry = new THREE.ExtrudeGeometry(lineShape, extrudeSettings);
+      const lineMaterial = new THREE.MeshBasicMaterial({ color: new THREE.Color(line.color) });
+      const lineMesh = new THREE.Mesh(extrudeGeometry, lineMaterial);
+  
+      lineGeometries.push(lineMesh);
+    });
+  
+    return lineGeometries;
+  },
   draw3DScene() {
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(
@@ -257,34 +312,10 @@ const DrawingApp = {
     this.renderer.setSize(window.innerWidth, window.innerHeight)
     this.renderer.setClearColor('#fff')
 
-    const canvasCenterX = this.canvas3d.width / 2
-    const canvasCenterY = this.canvas3d.height / 2
-    const scaleFactor = 0.02
-    const linesGroup = new THREE.Group()
-
-    this.lines.forEach((line) => {
-      const startX = (line.startX - canvasCenterX) * scaleFactor
-      const startY = (canvasCenterY - line.startY) * scaleFactor
-      const endX = (line.endX - canvasCenterX) * scaleFactor
-      const endY = (canvasCenterY - line.endY) * scaleFactor
-
-      const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-        new THREE.Vector3(startX, 0.1, startY),
-        new THREE.Vector3(endX, 0.1, endY),
-      ])
-      const lineMaterial = new THREE.LineBasicMaterial({
-        color: new THREE.Color(line.color),
-      })
-      const lineObject = new THREE.Line(lineGeometry, lineMaterial)
-
-      linesGroup.add(lineObject)
+    const lineGeometries = this.createLineGeometries()
+    lineGeometries.forEach((lineMesh) => {
+      this.scene.add(lineMesh)
     })
-
-    linesGroup.rotation.y = Math.PI
-    linesGroup.rotation.z = Math.PI
-    linesGroup.rotation.x = Math.PI / 2
-
-    this.scene.add(linesGroup)
 
     this.camera.position.y = 3
     this.camera.position.z = 8
@@ -305,36 +336,14 @@ const DrawingApp = {
 
   updateThreeDScene() {
     if (this.scene && this.renderer) {
-      this.scene.remove(this.scene.children[0])
-
-      const canvasCenterX = this.canvas3d.width / 2
-      const canvasCenterY = this.canvas3d.height / 2
-      const scaleFactor = 0.02
-      const linesGroup = new THREE.Group()
-
-      this.lines.forEach((line) => {
-        const startX = (line.startX - canvasCenterX) * scaleFactor
-        const startY = (canvasCenterY - line.startY) * scaleFactor
-        const endX = (line.endX - canvasCenterX) * scaleFactor
-        const endY = (canvasCenterY - line.endY) * scaleFactor
-
-        const lineGeometry = new THREE.BufferGeometry().setFromPoints([
-          new THREE.Vector3(startX, 0.1, startY),
-          new THREE.Vector3(endX, 0.1, endY),
-        ])
-        const lineMaterial = new THREE.LineBasicMaterial({
-          color: new THREE.Color(line.color),
-        })
-        const lineObject = new THREE.Line(lineGeometry, lineMaterial)
-
-        linesGroup.add(lineObject)
+      this.scene.children.forEach((child) => {
+        this.scene.remove(child)
       })
 
-      linesGroup.rotation.y = Math.PI
-      linesGroup.rotation.z = Math.PI
-      linesGroup.rotation.x = Math.PI / 2
-
-      this.scene.add(linesGroup)
+      const lineGeometries = this.createLineGeometries()
+      lineGeometries.forEach((lineMesh) => {
+        this.scene.add(lineMesh)
+      })
     }
   },
 }
