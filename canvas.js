@@ -145,7 +145,7 @@ const DrawingApp = {
       cancelAnimationFrame(this.animationId)
       this.renderer.dispose()
       this.renderer = null
-      this.scene.dispose()
+      this.scene.dispose() //here check
       this.scene = null
       this.camera = null
       this.controls = null
@@ -206,10 +206,6 @@ const DrawingApp = {
     })
   },
 
-  saveDrawing() {
-    // Not implemented as we are not using undo/redo
-  },
-
   logLinesData() {
     console.log('Lines drawn:')
     this.lines.forEach((line, index) => {
@@ -246,59 +242,64 @@ const DrawingApp = {
   },
 
   createLineGeometries() {
-    const canvasCenterX = this.canvas3d.width / 2;
-    const canvasCenterY = this.canvas3d.height / 2;
-    const scaleFactor = 0.02;
-    const lineHeight = 2; // Predefined line height
-    const lineWidthFactor = 5; // Factor to multiply with pencil width
-    const lineGeometries = [];
-  
+    const canvasCenterX = this.canvas3d.width / 2
+    const canvasCenterY = this.canvas3d.height / 2
+    const scaleFactor = 0.02
+    const lineHeight = 2 // Predefined line height
+    const lineWidthFactor = 5 // Factor to multiply with pencil width
+    const lineGeometries = []
+
     this.lines.forEach((line) => {
-      const startX = (line.startX - canvasCenterX) * scaleFactor;
-      const startY = (canvasCenterY - line.startY) * scaleFactor;
-      const endX = (line.endX - canvasCenterX) * scaleFactor;
-      const endY = (canvasCenterY - line.endY) * scaleFactor;
-  
-      const lineShape = new THREE.Shape();
-      const lineWidth = (line.width * scaleFactor) * lineWidthFactor;
-      const halfLineWidth = lineWidth / 2;
-  
+      const startX = (line.startX - canvasCenterX) * scaleFactor
+      const startY = (canvasCenterY - line.startY) * scaleFactor
+      const endX = (line.endX - canvasCenterX) * scaleFactor
+      const endY = (canvasCenterY - line.endY) * scaleFactor
+
+      const lineShape = new THREE.Shape()
+      const lineWidth = line.width * scaleFactor * lineWidthFactor
+      const halfLineWidth = lineWidth / 2
+
       // Calculate the normal vector to the line
-      const dx = endX - startX;
-      const dy = endY - startY;
-      const length = Math.sqrt(dx * dx + dy * dy);
-      const normalX = -dy / length;
-      const normalY = dx / length;
-  
+      const dx = endX - startX
+      const dy = endY - startY
+      const length = Math.sqrt(dx * dx + dy * dy)
+      const normalX = -dy / length
+      const normalY = dx / length
+
       // Define the four corners of the rectangle
-      const corner1X = startX - halfLineWidth * normalX;
-      const corner1Y = startY - halfLineWidth * normalY;
-      const corner2X = startX + halfLineWidth * normalX;
-      const corner2Y = startY + halfLineWidth * normalY;
-      const corner3X = endX + halfLineWidth * normalX;
-      const corner3Y = endY + halfLineWidth * normalY;
-      const corner4X = endX - halfLineWidth * normalX;
-      const corner4Y = endY - halfLineWidth * normalY;
-  
-      lineShape.moveTo(corner1X, corner1Y);
-      lineShape.lineTo(corner2X, corner2Y);
-      lineShape.lineTo(corner3X, corner3Y);
-      lineShape.lineTo(corner4X, corner4Y);
-      lineShape.closePath();
-  
+      const corner1X = startX - halfLineWidth * normalX
+      const corner1Y = startY - halfLineWidth * normalY
+      const corner2X = startX + halfLineWidth * normalX
+      const corner2Y = startY + halfLineWidth * normalY
+      const corner3X = endX + halfLineWidth * normalX
+      const corner3Y = endY + halfLineWidth * normalY
+      const corner4X = endX - halfLineWidth * normalX
+      const corner4Y = endY - halfLineWidth * normalY
+
+      lineShape.moveTo(corner1X, corner1Y)
+      lineShape.lineTo(corner2X, corner2Y)
+      lineShape.lineTo(corner3X, corner3Y)
+      lineShape.lineTo(corner4X, corner4Y)
+      lineShape.closePath()
+
       const extrudeSettings = {
         depth: lineHeight,
         bevelEnabled: false,
-      };
-  
-      const extrudeGeometry = new THREE.ExtrudeGeometry(lineShape, extrudeSettings);
-      const lineMaterial = new THREE.MeshBasicMaterial({ color: new THREE.Color(line.color) });
-      const lineMesh = new THREE.Mesh(extrudeGeometry, lineMaterial);
-  
-      lineGeometries.push(lineMesh);
-    });
-  
-    return lineGeometries;
+      }
+
+      const extrudeGeometry = new THREE.ExtrudeGeometry(
+        lineShape,
+        extrudeSettings
+      )
+      const lineMaterial = new THREE.MeshBasicMaterial({
+        color: new THREE.Color(line.color),
+      })
+      const lineMesh = new THREE.Mesh(extrudeGeometry, lineMaterial)
+
+      lineGeometries.push(lineMesh)
+    })
+
+    return lineGeometries
   },
   draw3DScene() {
     this.scene = new THREE.Scene()

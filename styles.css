@@ -142,10 +142,11 @@ body {
   cursor: pointer;
 }
 
+#toggleViewButton {
+  border: none;
+  outline: none;
+  background-color: transparent;
 
-
-
-#toggle_3d {
   border: 1px solid #666cff;
   position: fixed;
   bottom: 0;
@@ -155,11 +156,5 @@ body {
   padding: 5px;
   border-radius: 5px;
   align-items: center;
-  color: black;
-}
-
-#toggleViewButton{
-  border: none;
-  outline:none;
-  background-color: transparent;
+  color: #666cff;
 }
