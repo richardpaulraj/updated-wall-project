@@ -25,6 +25,17 @@ const DrawingApp = {
     this.draw2DScene()
   },
 
+  handleWallOutlineToggle(event) {
+    const isChecked = event.target.checked
+    if (isChecked) {
+      console.log('Wall outline is ON')
+      // Add your code to perform actions when the wall outline is ON
+    } else {
+      console.log('Wall outline is OFF')
+      // Add your code to perform actions when the wall outline is OFF
+    }
+  },
+
   setupEventListeners() {
     const button = document.getElementById('toggleViewButton')
     button.addEventListener('click', () => this.toggleView())
@@ -37,7 +48,7 @@ const DrawingApp = {
 
     //So why we are using bind() method here:
     // It does not immediately invoke the function but returns a new function with the specified this value.
-    //It's commonly used when you want to create a function with a specific this context to be used later, 
+    //It's commonly used when you want to create a function with a specific this context to be used later,
 
     // call() method : It immediately invokes the function with the specified this value and arguments.
 
@@ -74,7 +85,19 @@ const DrawingApp = {
     })
   },
 
-
+  toggleButtonOutlineWall() {
+    const toggleBtn = document.querySelector('.toggle-btn')
+    const isChecked = toggleBtn.classList.toggle('checked')
+    if (isChecked) {
+      // Perform actions when toggle button is checked (toggled on)
+      console.log('Toggle button is ON')
+      // Add your code to perform actions when the toggle button is ON
+    } else {
+      // Perform actions when toggle button is unchecked (toggled off)
+      console.log('Toggle button is OFF')
+      // Add your code to perform actions when the toggle button is OFF
+    }
+  },
 
   //To show and hide tools container
   toggleOptions(toolsCont, pencilToolCont) {
@@ -95,8 +118,6 @@ const DrawingApp = {
   },
   //To show and hide tools container
 
-
-
   // Pencil Event Handling Methods//
   togglePencilTool(pencilToolCont) {
     this.pencilFlag = !this.pencilFlag
@@ -112,40 +133,70 @@ const DrawingApp = {
   },
   // Pencil Event Handling Methods//
 
-
-
-
   // Mouse Event Handling Methods//
   handleMouseDown(e) {
-    this.startX = e.clientX
-    this.startY = e.clientY
-    this.isDrawing = true
+    if (e.shiftKey) {
+      // Check if the mouse is pressed with the shift key
+      const mouseX = e.clientX
+      const mouseY = e.clientY
+
+      // Check if the mouse is hovering over any line
+      this.lines.forEach((line, index) => {
+        if (this.isPointOnLine(mouseX, mouseY, line)) {
+          // If the mouse is hovering over a line, set the index of the line being dragged
+          this.draggedLineIndex = index
+          this.dragStartX = mouseX
+          this.dragStartY = mouseY
+          this.originalStartX = line.startX
+          this.originalStartY = line.startY
+          this.originalEndX = line.endX
+          this.originalEndY = line.endY
+        }
+      })
+    } else {
+      // If the shift key is not pressed, handle it as a pencil drawing action
+      this.startX = e.clientX
+      this.startY = e.clientY
+      this.isDrawing = true
+    }
   },
 
   handleMouseMove(e) {
-    if (this.isDrawing) {
+    if (this.draggedLineIndex !== null) {
+      // If a line is being dragged, update its coordinates based on mouse movement
+      const mouseX = e.clientX
+      const mouseY = e.clientY
+      const line = this.lines[this.draggedLineIndex]
+      const offsetX = mouseX - this.dragStartX
+      const offsetY = mouseY - this.dragStartY
+      line.startX = this.originalStartX + offsetX
+      line.startY = this.originalStartY + offsetY
+      line.endX = this.originalEndX + offsetX
+      line.endY = this.originalEndY + offsetY
+      this.redrawCanvas()
+    } else if (this.isDrawing) {
       const endX = e.clientX
       const endY = e.clientY
-      //This function is responsible for drawing temporary lines on the canvas while the user is actively drawing.
-      //Once the user completes the drawing action, the temporary lines drawn by this function are cleared or replaced by the final drawn lines using drawLine function.
+      // Handle pencil drawing action
       this.drawTempLine(this.startX, this.startY, endX, endY)
     }
   },
 
   handleMouseUp(e) {
+    console.log(this.lines)
     if (this.isDrawing) {
       const endX = e.clientX
       const endY = e.clientY
-      //Unlike drawTempLine, which is used for temporary visual feedback during drawing, drawLine adds the actual line to the canvas drawing.
+      // If drawing with the pencil tool, complete the line
       this.drawLine(this.startX, this.startY, endX, endY)
       this.isDrawing = false
     }
+    // Reset the draggedLineIndex when mouse is released
+    this.draggedLineIndex = null
   },
   // Mouse Event Handling Methods//
 
-
-
-// Toggles between 2D and 3D views.
+  // Toggles between 2D and 3D views.
   toggleView() {
     this.is3DView = !this.is3DView
 
@@ -155,11 +206,10 @@ const DrawingApp = {
     const pencilToolCont = document.querySelector('.pencil-tool-cont')
 
     if (this.is3DView) {
-
       if (!this.optionsFlag) {
         this.toggleOptions(toolsCont, pencilToolCont)
       }
-      
+
       this.canvas2d.style.display = 'none'
       this.canvas3d.style.display = 'block'
       this.remove2DEventListeners()
@@ -176,7 +226,6 @@ const DrawingApp = {
   },
   // Toggles between 2D and 3D views.
 
-
   // Removes event listeners for 2D canvas.
   remove2DEventListeners() {
     this.canvas2d.removeEventListener('mousedown', this.handleMouseDown)
@@ -185,15 +234,13 @@ const DrawingApp = {
   },
   // Removes event listeners for 2D canvas.
 
-
-
   // Removes 3D scene components.
   remove3DScene() {
     if (this.renderer) {
       cancelAnimationFrame(this.animationId)
       this.renderer.dispose()
       this.renderer = null
-      this.scene.dispose() 
+      this.scene.dispose()
       this.scene = null
       this.camera = null
       this.controls = null
@@ -201,23 +248,79 @@ const DrawingApp = {
   },
   // Removes 3D scene components.
 
-
-
   // Draws the initial 2D scene.
   draw2DScene() {
     this.canvas2d.width = window.innerWidth
     this.canvas2d.height = window.innerHeight
     this.redrawCanvas()
+
+    // Add event listener for mousemove to detect hovering over lines
+    this.canvas2d.addEventListener(
+      'mousemove',
+      this.handleMouseHover.bind(this)
+    )
   },
+
+  isPointOnLine(pointX, pointY, line) {
+    const startX = line.startX
+    const startY = line.startY
+    const endX = line.endX
+    const endY = line.endY
+
+    // Calculate the distance from the point to the line segment
+    const distanceToStart = Math.sqrt(
+      (pointX - startX) ** 2 + (pointY - startY) ** 2
+    )
+    const distanceToEnd = Math.sqrt((pointX - endX) ** 2 + (pointY - endY) ** 2)
+    const lineLength = Math.sqrt((endX - startX) ** 2 + (endY - startY) ** 2)
+
+    // Calculate the sum of distances from the point to the endpoints of the line segment
+    const distanceSum = distanceToStart + distanceToEnd
+
+    // Check if the sum of distances is approximately equal to the length of the line segment
+    // Using a very small tolerance value to ensure accuracy
+    const tolerance = 0.1 // Adjust as needed
+    return Math.abs(distanceSum - lineLength) < tolerance
+  },
+
+  handleMouseHover(e) {
+    const mouseX = e.clientX
+    const mouseY = e.clientY
+
+    // Clear canvas
+    this.tool.clearRect(0, 0, this.canvas2d.width, this.canvas2d.height)
+
+    // Redraw canvas with existing lines
+    this.redrawCanvas()
+
+    // Check for hover effect
+    this.lines.forEach((line) => {
+      this.tool.beginPath()
+      this.tool.moveTo(line.startX, line.startY)
+      this.tool.lineTo(line.endX, line.endY)
+
+      // Check if mouse is on the line
+      if (this.isPointOnLine(mouseX, mouseY, line)) {
+        // Change color to Gold Color if Shift key is pressed
+        if (e.shiftKey) {
+          this.tool.strokeStyle = 'gold'
+        } else {
+          this.tool.strokeStyle = line.color
+        }
+      } else {
+        this.tool.strokeStyle = line.color
+      }
+
+      this.tool.lineWidth = line.width
+      this.tool.stroke()
+      this.tool.closePath()
+    })
+  },
+
   // Draws the initial 2D scene.
-
-
-
-
 
   // Methods for drawing and managing 2D canvas.
   drawTempLine(startX, startY, endX, endY) {
-
     // Clear the entire canvas to remove any previous drawings
     this.tool.clearRect(0, 0, this.canvas2d.width, this.canvas2d.height)
 
@@ -242,18 +345,90 @@ const DrawingApp = {
         endY,
         color: this.currentPencilColor,
         width: this.currentPencilWidth,
+        circleRadius: 5, // Radius of the circle at the end of the line
       }
 
       this.undoStack.push(this.lines.slice())
       this.redoStack = []
       this.lines.push(line)
       this.redrawCanvas()
+      this.drawCircle(startX, startY, line.circleRadius) // Draw circle at start point
+      this.drawCircle(endX, endY, line.circleRadius) // Draw circle at end point
       this.logLinesData()
 
       if (this.is3DView) {
         this.updateThreeDScene()
       }
     }
+  },
+  // Implement event listeners for mouse events on the circles
+  setupCircleEventListeners() {
+    this.canvas2d.addEventListener(
+      'mousedown',
+      this.handleCircleMouseDown.bind(this)
+    )
+    this.canvas2d.addEventListener(
+      'mousemove',
+      this.handleCircleMouseMove.bind(this)
+    )
+    this.canvas2d.addEventListener(
+      'mouseup',
+      this.handleCircleMouseUp.bind(this)
+    )
+  },
+
+  // Handle mouse down event on the circles
+  handleCircleMouseDown(e) {
+    if (e.shiftKey) {
+      const mouseX = e.clientX
+      const mouseY = e.clientY
+
+      this.lines.forEach((line, index) => {
+        // Check if the mouse is pressed on the circle at the end of the line
+        if (
+          this.isPointOnCircle(
+            mouseX,
+            mouseY,
+            line.endX,
+            line.endY,
+            line.circleRadius
+          )
+        ) {
+          // If yes, set the index of the line and the circle being dragged
+          this.draggedLineIndex = index
+          this.draggedCircleIndex = index
+          this.dragStartX = mouseX
+          this.dragStartY = mouseY
+          this.dragOffsetX = mouseX - line.endX
+          this.dragOffsetY = mouseY - line.endY
+        }
+      })
+    }
+  },
+  // Handle mouse move event on the circles
+  handleCircleMouseMove(e) {
+    if (this.draggedLineIndex !== null && this.draggedCircleIndex !== null) {
+      // If a circle is being dragged, update the end point of the line based on mouse movement
+      const mouseX = e.clientX
+      const mouseY = e.clientY
+      const line = this.lines[this.draggedLineIndex]
+      line.endX = mouseX - this.dragOffsetX
+      line.endY = mouseY - this.dragOffsetY
+      this.redrawCanvas()
+    }
+  },
+
+  // Handle mouse up event on the circles
+  handleCircleMouseUp() {
+    // Reset the draggedLineIndex and draggedCircleIndex when mouse is released
+    this.draggedLineIndex = null
+    this.draggedCircleIndex = null
+  },
+
+  // Check if a point is on the circle
+  isPointOnCircle(pointX, pointY, circleX, circleY, radius) {
+    const distanceSquared = (pointX - circleX) ** 2 + (pointY - circleY) ** 2
+    return distanceSquared <= radius ** 2
   },
 
   redrawCanvas() {
@@ -265,8 +440,16 @@ const DrawingApp = {
       this.tool.strokeStyle = line.color
       this.tool.lineWidth = line.width
       this.tool.stroke()
+      this.drawCircle(line.endX, line.endY, line.circleRadius, line.color) // Draw circle at the end of each line
       this.tool.closePath()
     })
+  },
+  drawCircle(x, y, radius, color) {
+    this.tool.beginPath()
+    this.tool.arc(x, y, radius, 0, 2 * Math.PI)
+    this.tool.fillStyle = color
+    this.tool.fill()
+    this.tool.closePath()
   },
 
   logLinesData() {
@@ -280,7 +463,6 @@ const DrawingApp = {
     })
   },
   // Methods for drawing and managing 2D canvas.
-
 
   undo() {
     if (this.undoStack.length > 0) {
@@ -306,28 +488,28 @@ const DrawingApp = {
     }
   },
 
-
-
   //3D Rendering Methods:
+  // Array to store line meshes
+  lineMeshes: [],
 
-
-  
   createLineGeometries() {
-
-    //This line calculates the center of the canvas in the 3D scene 
+    //This line calculates the center of the canvas in the 3D scene
     const canvasCenterX = this.canvas3d.width / 2
     const canvasCenterY = this.canvas3d.height / 2
-    
+
     // A higher value will make the lines(wall) appear larger.
     const scaleFactor = 0.01
-
 
     const lineHeight = 2 // Predefined line height
     const lineWidthFactor = 5 // Factor to multiply with pencil width
     const lineGeometries = []
 
-    this.lines.forEach((line) => {
+    // const isWireframe = document.getElementById('toggleWallOutlineButton')
+    //   .checked
+    //   ? false
+    //   : true
 
+    this.lines.forEach((line) => {
       //Calculates the coordinates of the line, adjusting for the canvas center and scaling factor.
       const startX = (line.startX - canvasCenterX) * scaleFactor
       const startY = (canvasCenterY - line.startY) * scaleFactor
@@ -374,17 +556,28 @@ const DrawingApp = {
       )
       const lineMaterial = new THREE.MeshBasicMaterial({
         color: new THREE.Color(line.color),
+        wireframe: false,
       })
       const lineMesh = new THREE.Mesh(extrudeGeometry, lineMaterial)
 
-        // Rotate the line mesh to make it face upwards
-        lineMesh.rotateX(Math.PI / 2);
+      // Rotate the line mesh to make it face upwards
+      lineMesh.rotateX(Math.PI / 2)
+      // Store reference to the line mesh
+      this.lineMeshes.push(lineMesh)
 
       lineGeometries.push(lineMesh)
     })
 
     return lineGeometries
   },
+
+  //   // Update line meshes when toggle button state changes
+  //   updateLineMeshes(isWireframe) {
+  //     this.lineMeshes.forEach((lineMesh) => {
+  //       lineMesh.material.wireframe = isWireframe
+  //     })
+  //   },
+
   draw3DScene() {
     this.scene = new THREE.Scene()
     this.camera = new THREE.PerspectiveCamera(
@@ -402,8 +595,8 @@ const DrawingApp = {
       this.scene.add(lineMesh)
     })
 
-    this.camera.position.y = 2;
-    this.camera.position.z = 8;
+    this.camera.position.y = 2
+    this.camera.position.z = 8
 
     this.controls = new OrbitControls(this.camera, this.canvas3d)
     this.controls.enableDamping = true

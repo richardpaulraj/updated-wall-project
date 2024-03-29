@@ -159,3 +159,20 @@ body {
   align-items: center;
   color: #666cff;
 }
+#toggleWallOutlineButton {
+  cursor: pointer;
+  border: none;
+  outline: none;
+  background-color: transparent;
+
+  border: 1px solid #666cff;
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  margin: 20px;
+  display: flex;
+  padding: 5px;
+  border-radius: 5px;
+  align-items: center;
+  color: #666cff;
+}
